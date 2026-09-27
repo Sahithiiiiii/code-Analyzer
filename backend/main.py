@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from services.embedding import get_similarity
 from services.ast_analyzer import analyze_code
+from services.llm_reviewer import review_code
 
 
 app = FastAPI()
@@ -35,8 +36,24 @@ def similarity(request: SimilarityRequest):
 
 @app.post("/analyze")
 def analyze(request: AnalyzeRequest):
-    result = analyze_code(request.code)
 
+    # Step 1: Analyze the code using AST
+    ast_result = analyze_code(request.code)
+
+    # Stop if the Python code has a syntax error
+    if not ast_result["valid"]:
+        return {
+            "error": ast_result["error"]
+        }
+
+    # Step 2: Send code + AST findings to Gemini
+    ai_review = review_code(
+        request.code,
+        ast_result
+    )
+
+    # Step 3: Return everything to the client
     return {
-        "analysis": result
+        "ast_analysis": ast_result,
+        "ai_review": ai_review
     }
