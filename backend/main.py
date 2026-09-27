@@ -1,13 +1,19 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-
+from fastapi.middleware.cors import CORSMiddleware
 from services.embedding import get_similarity
 from services.ast_analyzer import analyze_code
 from services.llm_reviewer import review_code
 
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class SimilarityRequest(BaseModel):
     code1: str

@@ -1,3 +1,5 @@
+import json
+
 from google import genai
 from dotenv import load_dotenv
 
@@ -11,7 +13,7 @@ def review_code(code, ast_result):
     prompt = f"""
 You are an expert Python code reviewer.
 
-Review the following Python code:
+Review the following Python code.
 
 CODE:
 {code}
@@ -19,17 +21,25 @@ CODE:
 STATIC AST ANALYSIS:
 {ast_result}
 
-Use the AST analysis as supporting evidence, but also inspect the code yourself.
+Return ONLY valid JSON using exactly this structure:
 
-Return the review using these sections:
+{{
+    "summary": "Short overall review of the code",
+    "bugs": [],
+    "performance": [],
+    "quality": [],
+    "suggestions": []
+}}
 
-Summary:
-Bugs:
-Performance:
-Quality:
-Suggestions:
-
-Keep the review concise and practical.
+Rules:
+- Return only JSON.
+- Do not use Markdown.
+- Do not use ```json.
+- Do not add text before or after the JSON.
+- Each category must contain a list of strings.
+- If a category has no findings, return an empty list.
+- Do not invent problems.
+- Keep findings concise and practical.
 """
 
     response = client.models.generate_content(
@@ -37,4 +47,18 @@ Keep the review concise and practical.
         contents=prompt
     )
 
-    return response.text
+    review_text = response.text.strip()
+
+    # Convert Gemini's JSON text into a Python dictionary
+    try:
+        review = json.loads(review_text)
+    except json.JSONDecodeError:
+        # Handle accidental markdown code fences
+        if review_text.startswith("```"):
+            review_text = review_text.replace("```json", "")
+            review_text = review_text.replace("```", "")
+            review_text = review_text.strip()
+
+        review = json.loads(review_text)
+
+    return review
